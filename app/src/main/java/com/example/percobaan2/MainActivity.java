@@ -2,6 +2,9 @@ package com.example.percobaan2;
 
 import android.Manifest;
 import android.app.ActivityManager;
+import android.app.NotificationManager;
+import android.app.admin.DevicePolicyManager;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
@@ -10,8 +13,10 @@ import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.graphics.Bitmap;
 import android.graphics.Color;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
+import android.provider.Settings;
 import android.text.InputType;
 import android.view.MotionEvent;
 import android.view.View;
@@ -53,8 +58,16 @@ public class MainActivity extends AppCompatActivity {
     private TextView tvHiddenTrigger;
 
     private final int LOCATION_PERMISSION_REQUEST = 1001;
+    private final int NOTIFICATION_POLICY_REQUEST = 1002;
+    private final int DEVICE_ADMIN_REQUEST = 1003;
+
     private String mGeolocationOrigin;
     private GeolocationPermissions.Callback mGeolocationCallback;
+
+    // Notification Management
+    private NotificationManager notificationManager;
+    private DevicePolicyManager devicePolicyManager;
+    private ComponentName deviceAdminComponent;
 
     // Simpan state untuk rotasi
     private String currentUrl;
@@ -83,6 +96,9 @@ public class MainActivity extends AppCompatActivity {
         // Setup kiosk mode
         setupKioskMode();
 
+        // Initialize notification blocking
+        initializeNotificationBlocking();
+
         // Initialize components
         initializeComponents();
 
@@ -100,8 +116,113 @@ public class MainActivity extends AppCompatActivity {
 
         // Handle rotation - restore state atau load initial URL
         handleInitialLoad(savedInstanceState);
+
+        // Request notification access
+        requestNotificationAccess();
+    }
+    private void initializeNotificationBlocking() {
+        try {
+            notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+            devicePolicyManager = (DevicePolicyManager) getSystemService(Context.DEVICE_POLICY_SERVICE);
+            // Set Do Not Disturb mode jika memungkinkan
+            enableDoNotDisturbMode();
+
+            // Start notification blocker service
+            startNotificationBlockerService();
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
+    private void enableDoNotDisturbMode() {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                if (notificationManager != null && notificationManager.isNotificationPolicyAccessGranted()) {
+                    // Set Do Not Disturb to block all notifications
+                    NotificationManager.Policy policy = new NotificationManager.Policy(
+                            0, // interruption filter - block all
+                            0, // priority categories - none
+                            0  // priority call senders - none
+                    );
+                    notificationManager.setNotificationPolicy(policy);
+                    notificationManager.setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_NONE);
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void startNotificationBlockerService() {
+        try {
+            Intent serviceIntent = new Intent(this, NotificationBlockerService.class);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(serviceIntent);
+            } else {
+                startService(serviceIntent);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void requestNotificationAccess() {
+        try {
+            // Request Notification Policy Access
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                if (notificationManager != null && !notificationManager.isNotificationPolicyAccessGranted()) {
+                    Intent intent = new Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS);
+                    startActivityForResult(intent, NOTIFICATION_POLICY_REQUEST);
+                }
+            }
+
+            // Request Notification Listener Access
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR2) {
+                if (!isNotificationServiceEnabled()) {
+                    Intent intent = new Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS);
+                    startActivityForResult(intent, NOTIFICATION_POLICY_REQUEST);
+                }
+            }
+
+            // Request Device Admin (optional, untuk kontrol lebih ketat)
+            requestDeviceAdmin();
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void requestDeviceAdmin() {
+        try {
+            if (devicePolicyManager != null && !devicePolicyManager.isAdminActive(deviceAdminComponent)) {
+                Intent intent = new Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN);
+                intent.putExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN, deviceAdminComponent);
+                intent.putExtra(DevicePolicyManager.EXTRA_ADD_EXPLANATION,
+                        "Enable device admin to fully control kiosk mode and block notifications");
+                startActivityForResult(intent, DEVICE_ADMIN_REQUEST);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private boolean isNotificationServiceEnabled() {
+        String pkgName = getPackageName();
+        final String flat = Settings.Secure.getString(getContentResolver(), "enabled_notification_listeners");
+        if (!android.text.TextUtils.isEmpty(flat)) {
+            final String[] names = flat.split(":");
+            for (String name : names) {
+                final ComponentName cn = ComponentName.unflattenFromString(name);
+                if (cn != null) {
+                    if (pkgName.equals(cn.getPackageName())) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
     private void initializeComponents() {
         webView = findViewById(R.id.webView);
         progressBar = findViewById(R.id.progressBar);

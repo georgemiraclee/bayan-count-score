@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Simpan file ini sebagai res/drawable/close_button_background.xml -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="oval">
+
+    <solid android:color="#FF4444" />
+
+    <stroke
+        android:width="2dp"
+        android:color="#FFFFFF" />
+
+    <!-- Efek shadow/elevation -->
+    <gradient
+        android:startColor="#FF6666"
+        android:centerColor="#FF4444"
+        android:endColor="#CC2222"
+        android:angle="270" />
+
+</shape>
