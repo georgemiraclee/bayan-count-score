@@ -413,14 +413,14 @@ public class MainActivity extends AppCompatActivity {
             }
             // Jika tidak ada URL tersimpan, tambahkan default
             if (urlList.isEmpty()) {
-                urlList.add("http://10.2.97.47:3000/w.html");
+                urlList.add("http://10.2.8.23:3000/w.html");
                 saveUrls();
             }
         } catch (JSONException e) {
             e.printStackTrace();
             // Jika error, gunakan default
             urlList.clear();
-            urlList.add("http://10.2.97.47:3000/w.html");
+            urlList.add("http://10.2.8.23:3000/w.html");
             saveUrls();
         }
     }
@@ -440,7 +440,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private String getDefaultUrl() {
-        return urlList.isEmpty() ? "http://10.2.97.47:3000/w.html" : urlList.get(0);
+        return urlList.isEmpty() ? "http://10.2.8.23:3000/w.html" : urlList.get(0);
     }
 
     private void populateUrlList() {
